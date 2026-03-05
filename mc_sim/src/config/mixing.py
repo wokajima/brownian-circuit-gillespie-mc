@@ -1,0 +1,168 @@
+import networkx as nx
+import matplotlib.pyplot as plt
+
+#最小のモジュールの回路を定義する変数
+#遷移と状態を定義している
+
+#状態グラフがtreeとchainが混ざっているものを考える
+#コードの都合上各モジュールでの出力が欲しい
+#出力のうち一つを次のモジュールに渡す
+
+#状態はワイヤーに対応した1bitを複数桁用意した状態変数で記述される
+#粒子がある場合1,ない場合0となる
+#例えば0~4のワイヤーのうちワイヤー0と2にある状態は、0b00101、で表される
+
+#遷移は1の場所を移す論理演算で記述される
+#例えば0と2のトークンを4と5に移すとき、XOR0b11101を作用させる
+#生成消滅演算子を作用させていると考えられる
+
+#論理変数はA,C(comming carry),X(result),G(going carry)
+
+#全てのワイヤーは次のようになる
+#入力
+#A,notA,C,notC
+#出力
+#X,notX  X = A and C
+#G,notG G=C
+#全てで8bitの変数になる
+#二桁目のCは一桁目のGである
+#二桁目以降はCを除いた4bitを<<(4N+4) (N=1,2...)して結合すればよい
+# S_N << 4N | S_(N-1) << 4N-4 | ... | S_2 << 4+4 | S_1
+
+Mod_length = 8     #モジュール全体の状態数
+Base_length = 6    #桁上がり/桁上げを除いた状態数
+Cjoin_num = 4      #C-joinゲートの数
+
+logic_state = {0b1:"not C",
+               0b1<<1:"C",
+               0b1<<2:"not A",
+               0b1<<3:"A",
+               0b1<<4:"not X",
+               0b1<<5:"X",
+               0b1<<6:"not G",
+               0b1<<7:"G"
+               }
+logic_state_adder ={0b1:"not C",
+                    0b1<<1:"C",
+                    0b1<<2:"not A",
+                    0b1<<3:"A",
+                    0b1<<4:"not X",
+                    0b1<<5:"X",
+                    0b1<<6:"not G",
+                    0b1<<7:"G"
+                    }
+
+#例えば初期状態は次のうちのどれか
+initial =  [0b0000 <<4 | 0b0101,
+            0b0000 <<4 | 0b0110,
+            0b0000 <<4 | 0b1001,
+            0b0000 <<4 | 0b1010
+            ]
+
+secondary =[0b0000 <<2 | 0b01,
+            0b0000 <<2 | 0b10
+            ]
+
+#終状態かどうか調べるにはX,notXのビットに結果が入っているか見ればよい
+#次のビット列を状態とANDで作用させればよい
+final =[0b0001 <<4 | 0b0000,
+        0b0010 <<4 | 0b0000
+        ]
+#遷移はC-joinゲートの数だけある。今回は4個
+#C-joinゲートによる遷移は次のビット列のXORで表現される
+transition=[0b0101 <<4 | 0b0101,
+            0b1001 <<4 | 0b0110,
+            0b0101 <<4 | 0b1001,
+            0b1010 <<4 | 0b1010
+            ]
+
+#遷移が起こる状態を探索するための配列、配列内のオフセット数が同じものが対応する
+#状態ビットとのANDで0にならないものの遷移が起こる
+#本来は必要ないが前進確率と交代確率で遷移レートが違うと必要になる
+
+forward =  [0b0000 <<4 | 0b0101,
+            0b0000 <<4 | 0b0110,
+            0b0000 <<4 | 0b1001,
+            0b0000 <<4 | 0b1010
+            ]
+
+backward = [0b0101 <<4 | 0b0000,
+            0b1001 <<4 | 0b0000,
+            0b0101 <<4 | 0b0000,
+            0b1010 <<4 | 0b0000
+            ]
+
+#これらC-jinゲートを表すリストは必ず同じオフセットで同じC-joinゲートに対応させること
+
+#二桁目以降の遷移は遷移ビットの18bitを<<(16N) (N=1,2...)すればよい
+
+#グラフ描画のためのノードの設定
+
+node_pos = {"C":(0,1),
+            "A":(0,3),
+            "X":(2,1),
+            "G":(2,3),
+            "not C":(0,0),
+            "not A":(0,2),
+            "not X":(2,0),
+            "not G":(2,2),
+            transition[0]:(1,0.5),
+            transition[1]:(1,1.5),
+            transition[2]:(1,2.5),
+            transition[3]:(1,3.5)
+            }
+
+wire_pos = {"C":(0,1),
+            "A":(0,3),
+            "X":(2,1),
+            "G":(2,3),
+            "not C":(0,0),
+            "not A":(0,2),
+            "not X":(2,0),
+            "not G":(2,2),
+            }
+
+gate_pos = {transition[0]:(1,0.5),
+            transition[1]:(1,1.5),
+            transition[2]:(1,2.5),
+            transition[3]:(1,3.5)
+            }
+
+def initial_test():
+    print("one digit")
+    for i in range(4):
+        print("\ninitial state;"+str(bin(initial[i])))
+        for j in range(Cjoin_num):
+            if forward[j]&initial[i] == forward[j]:
+                print("is transferred by "+str(bin(transition[j])))
+                print("to next state;"+(bin(initial[i]^transition[j])))
+    print("\ntwo digit")
+    for i in range(4):
+        for j in range(2):
+            state = secondary[j] << Mod_length | initial[i]
+            print("\ninitial state;"+str(bin(state)))
+            for k in range(Cjoin_num):
+                if forward[k]&state == forward[k]:
+                    print("is transferred by 1st module gate;"+str(bin(transition[j])))
+                    print("to next state;"+(bin(state^transition[j])))
+            for t in range(Cjoin_num):
+                if (forward[t]<<Base_length)&state == forward[t]<<Base_length:
+                    print("is transferred by 2nd module gate;"+str(bin(transition[j])))
+                    print("to next state;"+(bin(state^(transition[j]<<Base_length))))
+
+def graph():
+    G = nx.Graph()
+    for i in range(len(logic_state)):
+        G.add_node(logic_state[0b1<<i])
+    for edge in transition:
+        G.add_node(edge)
+        for i in range(Mod_length):
+            if edge & 0b1<<i:
+                G.add_edge(edge,logic_state[0b1<<i])
+    nx.draw(G,node_pos,with_labels=True,node_color='skyblue', edge_color='b',node_size=300)
+    #nx.draw_networkx_nodes(G,node_pos,nodelist=["A","B","C"],node_color='red',node_size=400)
+    plt.show()
+
+if __name__ == "__main__":
+    initial_test()
+    graph()
