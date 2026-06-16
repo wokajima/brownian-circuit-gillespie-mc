@@ -97,32 +97,32 @@ if __name__ == "__main__":
     name = job_args.circuit
     for M in job_args.module:
         for f_rate in job_args.gamma:
-                #開始時刻を表示
-                print(datetime.now())
-                start=timer.time()
-                #変数の処理
-                input = (M,name,f_rate)
-                print("test cases of "+name+"_mod-"+str(M)+"_rate-"+str(f_rate))
-                #名前に使う変数の生成
-                timename = str(timer.time_ns())
-                b_rate = 1
-                #プールのサイズをCPUコア数にする
-                pool_size = cpu_count()
-                results = []
-                print(pool_size)
-                #tqdmでプログレスバーを作成
-                with tqdm(total=test_num) as pbar:
-                    with Pool(pool_size) as pool:
-                        for _ in range(test_num):
-                            pool.apply_async(trajectory, args=(M,name,f_rate), callback=update_progress_bar)
+            #開始時刻を表示
+            print(datetime.now())
+            start=timer.time()
+            #変数の処理
+            input = (M,name,f_rate)
+            print("test cases of "+name+"_mod-"+str(M)+"_rate-"+str(f_rate))
+            #名前に使う変数の生成
+            timename = str(timer.time_ns())
+            b_rate = 1
+            #プールのサイズをCPUコア数にする
+            pool_size = cpu_count()
+            results = []
+            print(pool_size)
+            #tqdmでプログレスバーを作成
+            with tqdm(total=test_num) as pbar:
+                with Pool(pool_size) as pool:
+                    for _ in range(test_num):
+                        pool.apply_async(trajectory, args=(M,name,f_rate), callback=update_progress_bar)
 
-                        pool.close()
-                        pool.join()  #全てのタスクが終わるまで待機
-                #データの変換
-                data=np.array(results)
-                data_frame = pd.DataFrame(data)
-                data_frame.to_csv("../data/"+name+"/"+name+":mod-"+str(M)+"_test:"+str(test_num)+"rate:"+str(f_rate)+"-"+str(b_rate)+"_with"+timename+"_data.csv",header=False,index=False)
-                print("test cases of "+name+"_mod-"+str(M)+"_rate-"+str(f_rate)+" were closed!")
-                #終了時刻
-                end=timer.time()
-                print(end-start)
+                    pool.close()
+                    pool.join()  #全てのタスクが終わるまで待機
+            #データの変換
+            data=np.array(results)
+            data_frame = pd.DataFrame(data)
+            data_frame.to_csv("../data/"+name+"/"+name+":mod-"+str(M)+"_test:"+str(test_num)+"rate:"+str(f_rate)+"-"+str(b_rate)+"_with"+timename+"_data.csv",header=False,index=False)
+            print("test cases of "+name+"_mod-"+str(M)+"_rate-"+str(f_rate)+" were closed!")
+            #終了時刻
+            end=timer.time()
+            print(end-start)
