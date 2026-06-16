@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 import logging as lg
-from .src import brownian as GET
+from src import brownian as GET
 
 lg.basicConfig(level=lg.WARNING, format="%(levelname)s:%(message)s")
 
